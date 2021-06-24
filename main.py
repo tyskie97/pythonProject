@@ -27,7 +27,7 @@ class Soldier(pygame.sprite.Sprite):
         dx = 0
         dy = 0
 
-        # assigne movement variables if moving left or right
+        # assignee movement variables if moving left or right
         if moving_left:
             dx = -self.speed
         if moving_right:
