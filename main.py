@@ -72,7 +72,7 @@ class Soldier(pygame.sprite.Sprite):
         self.update_animation()
         # update cooldown
         if self.shoot_cooldown > 0:
-            self.shoot_cooldown -=1
+            self.shoot_cooldown -= 1
 
     def move(self, moving_left, moving_right):
         # reset movement variables
