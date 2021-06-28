@@ -41,6 +41,7 @@ class Soldier(pygame.sprite.Sprite):
         self.alive = True
         self.char_type = char_type
         self.speed = speed
+        self.shoot_cooldown = 0
         self.direction = 1
         self.vel_y = 0
         self.jump = False
@@ -66,6 +67,12 @@ class Soldier(pygame.sprite.Sprite):
         self.image = self.animation_list[self.action][self.frame_index]
         self.rect = self.image.get_rect()
         self.rect.center = (x, y)
+
+    def update(self):
+        self.update_animation()
+        # update cooldown
+        if self.shoot_cooldown > 0:
+            self.shoot_cooldown -=1
 
     def move(self, moving_left, moving_right):
         # reset movement variables
@@ -103,6 +110,12 @@ class Soldier(pygame.sprite.Sprite):
         self.rect.x += dx
         self.rect.y += dy
 
+    def shoot(self):
+        if self.shoot_cooldown == 0:
+            self.shoot_cooldown = 20
+            bullet = Bullet(self.rect.centerx + (self.rect.size[0]) * 0.6 * self.direction, self.rect.centery, self.direction)
+            bullet_group.add(bullet)
+
     def update_animation(self):
         # update animation
         ANIMATION_COOLDOWN = 100
@@ -137,6 +150,13 @@ class Bullet(pygame.sprite.Sprite):
         self.rect.center = (x, y)
         self.direction = direction
 
+    def update(self):
+        # move bullet
+        self.rect.x += (self.direction * self.speed)
+        # check if bullet has gone off screen
+        if self.rect.right < 0 or self.rect.left > SCREEN_WIDTH:
+            self.kill()
+
 
 # create sprite groups
 bullet_group = pygame.sprite.Group()
@@ -156,7 +176,7 @@ while run:
     draw_bg()
 
     enemy.draw()
-    player.update_animation()
+    player.update()
     player.draw()
 
     # update and draw groups
@@ -166,7 +186,7 @@ while run:
     # update player actions
     if player.alive:
         if shoot:
-            bullet = Bullet()
+            player.shoot()
         if player.in_air:
             player.update_action(2)
         elif moving_left or moving_right:
