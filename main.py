@@ -1,6 +1,7 @@
 import pygame
 import os
 import random
+import csv
 
 pygame.init()
 
@@ -16,7 +17,11 @@ FPS = 60
 
 # define game variables
 GRAVITY = 0.75
-TILE_SIZE = 40
+ROWS = 16
+COLS = 150
+TILE_SIZE = SCREEN_HEIGHT // ROWS
+TILE_TYPES = 21
+level = 1
 
 # define player action variables
 moving_left = False
@@ -39,7 +44,6 @@ item_boxes = {
     'Ammo': ammo_box_img,
     'Grenade': grenade_box_img
 }
-
 
 # define colours
 BG = (144, 201, 120)
@@ -153,22 +157,22 @@ class Soldier(pygame.sprite.Sprite):
         if self.shoot_cooldown == 0 and self.ammo > 0:
             self.shoot_cooldown = 20
             # draw bullet on screen
-            bullet = Bullet(self.rect.centerx + (self.rect.size[0]* 0.8 * self.direction), self.rect.centery, self.direction)
+            bullet = Bullet(self.rect.centerx + (self.rect.size[0] * 0.8 * self.direction), self.rect.centery, self.direction)
             bullet_group.add(bullet)
             # reduce ammo
-            self.ammo -=1
+            self.ammo -= 1
 
     def ai(self):
         if self.alive and player.alive:
             if self.idling == False:
                 if random.randint(1, 200) == 1:
                     self.idling = True
-                    self.update_action(0) # change to idle
+                    self.update_action(0)  # change to idle
                     self.idling_counter = 50
             # check if AI see the player
             if self.vision.colliderect(player.rect):
-                # stop running and face player
-                self.update_action(0) # change to idle
+                # stop running and shoot player
+                self.update_action(0)  # change to idle
                 self.shoot()
             else:
                 if self.idling == False:
@@ -178,17 +182,16 @@ class Soldier(pygame.sprite.Sprite):
                         ai_moving_right = False
                     ai_moving_left = not ai_moving_right
                     self.move(ai_moving_left, ai_moving_right)
-                    self.update_action(1) # change to run
-                    self.move_counter +=1
+                    self.update_action(1)  # change to run
+                    self.move_counter += 1
                     # update ai vision as the enemy moves
                     self.vision.center = (self.rect.centerx + 75 * self.direction, self.rect.centery)
-                    pygame.draw.rect(screen, RED, self.vision)
 
                     if self.move_counter > TILE_SIZE:
                         self.direction *= -1
                         self.move_counter *= -1
                 else:
-                    self.idling_counter -=1
+                    self.idling_counter -= 1
                     if self.idling_counter <= 0:
                         self.idling = False
 
@@ -204,7 +207,7 @@ class Soldier(pygame.sprite.Sprite):
         # if the animation has run out the reset back to the start
         if self.frame_index >= len(self.animation_list[self.action]):
             if self.action == 3:
-                self.frame_index = len(self.animation_list[self.action])-1
+                self.frame_index = len(self.animation_list[self.action]) - 1
             else:
                 self.frame_index = 0
 
@@ -217,7 +220,7 @@ class Soldier(pygame.sprite.Sprite):
             self.update_time = pygame.time.get_ticks()
 
     def check_alive(self):
-        if self.health <=0:
+        if self.health <= 0:
             self.health = 0
             self.speed = 0
             self.alive = False
@@ -233,7 +236,7 @@ class ItemBox(pygame.sprite.Sprite):
         self.item_type = item_type
         self.image = item_boxes[self.item_type]
         self.rect = self.image.get_rect()
-        self.rect.midtop = (x + TILE_SIZE//2, y + (TILE_SIZE - self.image.get_height()))
+        self.rect.midtop = (x + TILE_SIZE // 2, y + (TILE_SIZE - self.image.get_height()))
 
     def update(self):
         # check if player picked up box
@@ -242,7 +245,7 @@ class ItemBox(pygame.sprite.Sprite):
             if self.item_type == 'Health':
                 # if player is max hp already he will not pick up health box
                 if player.health < player.max_health:
-                    player.health +=25
+                    player.health += 25
                     if player.health > player.max_health:
                         player.health = player.max_health
                     self.kill()
@@ -267,9 +270,9 @@ class HealthBar():
         # calculate health ratio
         ratio = self.health / self.max_health
         # odejmujemy 2 tak zeby wystawalo na gorze i z lewej pozniej dodajemy 4 zeby obeszło cały pasek zdrowia
-        pygame.draw.rect(screen, BLACK, (self.x-2, self.y-2, 154, 24))
+        pygame.draw.rect(screen, BLACK, (self.x - 2, self.y - 2, 154, 24))
         pygame.draw.rect(screen, RED, (self.x, self.y, 150, 20))
-        pygame.draw.rect(screen, GREEN, (self.x, self.y, 150*ratio, 20))
+        pygame.draw.rect(screen, GREEN, (self.x, self.y, 150 * ratio, 20))
 
 
 class Bullet(pygame.sprite.Sprite):
@@ -290,12 +293,12 @@ class Bullet(pygame.sprite.Sprite):
         # check collision with characters
         if pygame.sprite.spritecollide(player, bullet_group, False):
             if player.alive:
-                player.health -=5
+                player.health -= 5
                 self.kill()
         for enemy in enemy_group:
             if pygame.sprite.spritecollide(enemy, bullet_group, False):
                 if enemy.alive:
-                    enemy.health -=25
+                    enemy.health -= 25
                     self.kill()
 
 
@@ -330,7 +333,7 @@ class Grenade(pygame.sprite.Sprite):
         self.rect.y += dy
 
         # countdown timer
-        self.timer -=1
+        self.timer -= 1
         if self.timer <= 0:
             self.kill()
             explosion = Explosion(self.rect.x, self.rect.y, 1)
@@ -338,11 +341,11 @@ class Grenade(pygame.sprite.Sprite):
             # do damage to anyone that is nearby
             if abs(self.rect.centerx - player.rect.centerx) < TILE_SIZE * 2 and \
                     abs(self.rect.centery - player.rect.centery) < TILE_SIZE * 2:
-                player.health -=50
+                player.health -= 50
             for enemy in enemy_group:
                 if abs(self.rect.centerx - enemy.rect.centerx) < TILE_SIZE * 2 and \
                         abs(self.rect.centery - enemy.rect.centery) < TILE_SIZE * 2:
-                    enemy.health -=50
+                    enemy.health -= 50
 
 
 class Explosion(pygame.sprite.Sprite):
@@ -388,7 +391,6 @@ item_box_group.add(item_box)
 item_box = ItemBox('Grenade', 500, 260)
 item_box_group.add(item_box)
 
-
 player = Soldier('player', 200, 200, 1.65, 5, 20, 5)
 health_bar = HealthBar(10, 10, player.health, player.health)
 
@@ -397,6 +399,18 @@ enemy2 = Soldier('enemy', 300, 200, 1.65, 3, 20, 0)
 enemy_group.add(enemy)
 enemy_group.add(enemy2)
 
+# create empty tile list
+world_data = []
+for row in range(ROWS):
+    r = [-1] * COLS
+    world_data.append(r)
+# load in level data and create world
+with open(f'level{level}_data.csv', newline='') as csvfile:
+    reader = csv.reader(csvfile, delimiter=',')
+    for x, row in enumerate(reader):
+        for y, tile in enumerate(row):
+            world_data[x][y] = int(tile)
+print(world_data)
 x = 200
 y = 200
 scale = 3
@@ -412,7 +426,7 @@ while run:
     # show ammo
     draw_text('AMMO: ', font, WHITE, 10, 35)
     for x in range(player.ammo):
-        screen.blit(bullet_img, (90 +(x*10), 40))
+        screen.blit(bullet_img, (90 + (x * 10), 40))
 
     # show grenades
     draw_text('GRENADES: ', font, WHITE, 10, 60)
